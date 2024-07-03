@@ -19,6 +19,8 @@ class BasicConvClassifier(nn.Module):
             ConvBlock(hid_dim, hid_dim),
         )
 
+        self.lstm_block = LSTM_Block(hid_dim, hid_dim)
+
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool1d(1),
             Rearrange("b d 1 -> b d"),
@@ -33,6 +35,9 @@ class BasicConvClassifier(nn.Module):
             X ( b, num_classes ): _description_
         """
         X = self.blocks(X)
+        X = X.permute(0, 2, 1) # RNNに渡すために形状を変更
+        X = self.lstm_block(X)
+        X = X.permute(0, 2, 1)
 
         return self.head(X)
 
@@ -74,3 +79,35 @@ class ConvBlock(nn.Module):
         # X = F.glu(X, dim=-2)
 
         return self.dropout(X)
+    
+class LSTM_Block(nn.Module):
+    def __init__(
+            self,
+            in_dim,
+            out_dim,
+            p_drop:float = 0.1,
+            num_layers:int = 3,
+            bidirectional: bool = True, #双方向にするか否か
+    ) -> None:
+        super().__init__()
+        
+        self.lstm = nn.LSTM(
+            input_size = in_dim,
+            hidden_size = out_dim,
+            num_layers = num_layers,
+            dropout = p_drop,
+            batch_first=True
+        )
+
+        self.dropout = nn.Dropout(p_drop)
+    
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """
+        入力Xの形状：(batch_size, seq_len, features)
+        seq_len : シーケンス長（時系列データの長さ）
+        features : 各時点に関連する特徴の数
+        """
+        X, (hn, cn) = self.lstm(X)
+        X = self.dropout(X)
+        return X
+
