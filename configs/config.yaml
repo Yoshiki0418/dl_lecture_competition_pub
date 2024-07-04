@@ -11,3 +11,6 @@ data_dir: data
 
 # Evaluation
 model_path: 
+
+annotations_file: data/train_image_paths.txt
+img_dir: images
