@@ -86,7 +86,7 @@ class LSTM_Block(nn.Module):
             in_dim,
             out_dim,
             p_drop:float = 0.1,
-            num_layers:int = 3,
+            num_layers:int = 2,
             bidirectional: bool = True, #双方向にするか否か
     ) -> None:
         super().__init__()

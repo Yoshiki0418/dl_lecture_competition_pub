@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from typing import Tuple
 from termcolor import cprint
+from PIL import Image
 
 
 class ThingsMEGDataset(torch.utils.data.Dataset):
@@ -36,3 +37,25 @@ class ThingsMEGDataset(torch.utils.data.Dataset):
     @property
     def seq_len(self) -> int:
         return self.X.shape[2]
+   
+class ImageDataset(torch.utils.data.Dataset):
+    def __init__(self, annotations_file, img_dir:str = "images", transform=None, target_transform=None) -> None:
+        self.img_paths = []
+        self.img_dir = img_dir
+        self.transform = transform
+        self.target_transform = target_transform
+        with open(annotations_file, "r") as file:
+            for line in file:
+                self.img_paths.append(line.strip())
+
+    def __len__(self) -> int:
+        return len(self.img_paths)
+    
+    def __getitem__(self, idx):
+        img_path = self.img_paths[idx]
+        label = img_path.split("/")[0]
+        img_path = os.path.join(self.img_dir, img_path)
+        image = Image.open(img_path).convert("RGB")
+        if self.transform:
+            image = self.transform(image)  # 画像に変換を適用
+        return image, label
