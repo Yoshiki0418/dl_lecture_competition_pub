@@ -59,3 +59,4 @@ class ImageDataset(torch.utils.data.Dataset):
         if self.transform:
             image = self.transform(image)  # 画像に変換を適用
         return image, label
+        
