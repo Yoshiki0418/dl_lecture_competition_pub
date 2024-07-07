@@ -10,7 +10,8 @@ from termcolor import cprint
 from tqdm import tqdm
 
 from src.datasets import ThingsMEGDataset
-from src.models import BasicConvClassifier
+from src.models import BasicConvClassifier, FineTunedCLIPModel
+from src.clip_model import CLIP_model
 from src.utils import set_seed
 
 
@@ -39,9 +40,18 @@ def run(args: DictConfig):
     # ------------------
     #       Model
     # ------------------
+
     model = BasicConvClassifier(
         train_set.num_classes, train_set.seq_len, train_set.num_channels
     ).to(args.device)
+
+    # clip_model = CLIP_model(train_set.num_channels).to(args.device)
+    # clip_model.load_state_dict(torch.load('outputs/2024-07-05/13-55-54/model_last.pt'))
+
+    # model = FineTunedCLIPModel(
+    #     train_set.num_classes,
+    #     pretrained_model=clip_model, 
+    # ).to(args.device) 
 
     # ------------------
     #     Optimizer
@@ -96,7 +106,6 @@ def run(args: DictConfig):
             cprint("New best.", "cyan")
             torch.save(model.state_dict(), os.path.join(logdir, "model_best.pt"))
             max_val_acc = np.mean(val_acc)
-            
     
     # ----------------------------------
     #  Start evaluation with best model

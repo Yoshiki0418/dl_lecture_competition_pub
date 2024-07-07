@@ -16,7 +16,7 @@ class BasicConvClassifier(nn.Module):
 
         self.blocks = nn.Sequential(
             ConvBlock(in_channels, hid_dim),
-            ConvBlock(hid_dim, hid_dim),
+            ConvBlock2(hid_dim, hid_dim),
         )
 
         self.lstm_block = LSTM_Block(hid_dim, hid_dim)
@@ -56,8 +56,7 @@ class ConvBlock(nn.Module):
         self.out_dim = out_dim
 
         self.conv0 = nn.Conv1d(in_dim, out_dim, kernel_size, padding="same")
-        self.conv1 = nn.Conv1d(out_dim, out_dim, kernel_size, padding="same")
-        # self.conv2 = nn.Conv1d(out_dim, out_dim, kernel_size) # , padding="same")
+        self.conv1 = nn.Conv1d(out_dim, out_dim, kernel_size+2, padding="same")
         
         self.batchnorm0 = nn.BatchNorm1d(num_features=out_dim)
         self.batchnorm1 = nn.BatchNorm1d(num_features=out_dim)
@@ -75,8 +74,39 @@ class ConvBlock(nn.Module):
         X = self.conv1(X) + X  # skip connection
         X = F.gelu(self.batchnorm1(X))
 
-        # X = self.conv2(X)
-        # X = F.glu(X, dim=-2)
+        return self.dropout(X)
+    
+class ConvBlock2(nn.Module):
+    def __init__(
+        self,
+        in_dim,
+        out_dim,
+        kernel_size: int = 7,
+        p_drop: float = 0.1,
+    ) -> None:
+        super().__init__()
+        
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+
+        self.conv0 = nn.Conv1d(in_dim, out_dim, kernel_size, padding="same")
+        self.conv1 = nn.Conv1d(out_dim, out_dim, kernel_size-4, padding="same")
+        
+        self.batchnorm0 = nn.BatchNorm1d(num_features=out_dim)
+        self.batchnorm1 = nn.BatchNorm1d(num_features=out_dim)
+
+        self.dropout = nn.Dropout(p_drop)
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        if self.in_dim == self.out_dim:
+            X = self.conv0(X) + X  # skip connection
+        else:
+            X = self.conv0(X)
+
+        X = F.gelu(self.batchnorm0(X))
+
+        X = self.conv1(X) + X  # skip connection
+        X = F.gelu(self.batchnorm1(X))
 
         return self.dropout(X)
     
@@ -86,17 +116,21 @@ class LSTM_Block(nn.Module):
             in_dim,
             out_dim,
             p_drop:float = 0.1,
-            num_layers:int = 2,
-            bidirectional: bool = True, #双方向にするか否か
+            num_layers:int = 3,
+            bidirectional: bool = False, #双方向にするか否か
     ) -> None:
         super().__init__()
         
+        if(bidirectional):
+          out_dim = int(out_dim/2)
+
         self.lstm = nn.LSTM(
             input_size = in_dim,
             hidden_size = out_dim,
             num_layers = num_layers,
             dropout = p_drop,
-            batch_first=True
+            batch_first=True,
+            bidirectional=bidirectional
         )
 
         self.dropout = nn.Dropout(p_drop)
@@ -111,3 +145,30 @@ class LSTM_Block(nn.Module):
         X = self.dropout(X)
         return X
 
+#------------------------------
+#ファインチューニングモデル
+#------------------------------
+class FineTunedCLIPModel(nn.Module):
+    def __init__(
+            self,
+            num_classes,
+            pretrained_model,
+            hid_dim:int = 128,
+        ):
+        super().__init__()
+    
+        self.pretrained_model = pretrained_model
+        # 事前学習済みの特徴抽出部分のパラメータを固定
+        for param in self.pretrained_model.parameters():
+            param.requires_grad = False
+        # 新たな分類用ヘッドを追加
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool1d(1),
+            Rearrange("b d 1 -> b d"),
+            nn.Linear(hid_dim, num_classes),
+        )
+
+    def forward(self, x):
+        features = self.pretrained_model.eeg_encoder(x)  # 脳波データから特徴を抽出
+        output = self.head(features) # 新たなヘッドでクラス予測
+        return output

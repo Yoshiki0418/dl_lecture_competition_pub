@@ -1,0 +1,18 @@
+batch_size: 128
+epochs: 2
+lr: 0.001
+
+device: cuda:0
+num_workers: 4
+seed: 1234
+use_wandb: False
+
+train_data_path: data/train_X.pt
+val_data_path: data/val_X.pt
+
+# Evaluation
+model_path: 
+
+train_annotations_file: data/train_image_paths.txt
+val_annotations_file: data/val_image_paths.txt
+img_dir: /content/drive/MyDrive/Deep_Learning_basic_course/final_assignment/dl_lecture_competition_pub/images
