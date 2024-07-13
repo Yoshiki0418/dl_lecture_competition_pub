@@ -10,7 +10,7 @@ from termcolor import cprint
 from tqdm import tqdm
 
 from src.datasets import ThingsMEGDataset
-from src.models import BasicConvClassifier, FineTunedCLIPModel
+from src.models import MEG_transformer, FineTunedCLIPModel
 from src.clip_model import CLIP_model
 from src.utils import set_seed
 
@@ -41,7 +41,7 @@ def run(args: DictConfig):
     #       Model
     # ------------------
 
-    model = BasicConvClassifier(
+    model = MEG_transformer(
         train_set.num_classes, train_set.seq_len, train_set.num_channels
     ).to(args.device)
 

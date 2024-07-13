@@ -10,7 +10,7 @@ from torch import dropout, dropout_, einsum
 #------------------------------
 # モデル
 #------------------------------
-class BasicConvClassifier(nn.Module):
+class MEG_transformer(nn.Module):
     def __init__(
         self,
         num_classes: int,
@@ -20,6 +20,9 @@ class BasicConvClassifier(nn.Module):
         dropout: float = 0.1
     ) -> None:
         super().__init__()
+
+        self.adjust_dim = nn.Conv1d(271, 272, kernel_size=1)
+        self.pe = PositionalEncoding(dim=in_channels)
 
         self.blocks = nn.Sequential(
             TransformerBlock(in_channels, seq_len, dropout),
@@ -44,11 +47,11 @@ class BasicConvClassifier(nn.Module):
         Returns:
             X ( b, num_classes ): _description_
         """
-        self.adjust_dim = nn.Conv1d(271, 272, kernel_size=1)
+        time = torch.arange(X.shape[-1], device=X.device)
+        time_emb = self.pe(time=time)
+        time_emb = time_emb.transpose(0, 1).to(X.device)
+        X = X + time_emb.unsqueeze(0)
         X = self.blocks(X)
-        # X = X.permute(0, 2, 1) # RNNに渡すために形状を変更
-        # X = self.lstm_block(X)
-        # X = X.permute(0, 2, 1)
 
         return self.head(X)
 
@@ -268,20 +271,15 @@ class Attention(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(self, dim, length, dropout=0.1):
         super().__init__()
-        self.pe = PositionalEncoding(dim=dim)
         self.norm = nn.LayerNorm((dim, length))
         self.attn = Attention(dim)
         self.ffn = FFN(dim)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        time = torch.arange(x.shape[-1], device=x.device)
-        time_emb = self.pe(time=time)
-        time_emb = time_emb.transpose(0, 1).to(x.device)
-        x1 = x + time_emb.unsqueeze(0)
-        x_norm1 = self.norm(x1)
+        x_norm1 = self.norm(x)
         x_norm1 = self.attn(x_norm1)
-        x2 = x1 + self.dropout(x_norm1)
+        x2 = x + self.dropout(x_norm1)
         x_norm2 = self.norm(x2)
         x_norm2 = rearrange(x_norm2, "b c l -> b l c")
         x_norm2 = self.ffn(x_norm2)
