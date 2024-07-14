@@ -192,7 +192,7 @@ class FineTunedCLIPModel(nn.Module):
         return output
 
 #------------------------------
-#相対位置エンコーディング
+#絶対位置エンコーディング
 #------------------------------
 class PositionalEncoding(nn.Module):
     def __init__(self, dim):
